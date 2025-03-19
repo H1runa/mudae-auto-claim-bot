@@ -9,11 +9,12 @@ const messages = new MsgArray(5);
 let char_wishlist = [];
 let series_wishlist = [];
 
+let channel;
 
 client.on('ready', async () => {
   console.log(`${client.user.username} is ready!`);  
 
-  const channel = await client.channels.fetch(process.env.CHANNEL_ID);  //roll channel
+  channel = await client.channels.fetch(process.env.CHANNEL_ID);  //roll channel
 
   try{
     char_wishlist = await db('wishlist').select('name').where('type', 'character');  //loading wishlist from db
@@ -63,6 +64,10 @@ client.on('ready', async () => {
 //auto claim
 client.on('messageCreate', async (m) => {
 
+  if (m.channel.id != channel.id){ //ignoring non roll channels
+    return;
+  }
+
   messages.add(m);  //adding messages to an array to find whom the rolls belong to
 
   if (m.author.username == 'Mudae'){
@@ -107,6 +112,10 @@ client.on('messageCreate', async (m) => {
 
 //wishlist related
 client.on('messageCreate', async (m) => {
+  if (m.channel.id != channel.id){ //ignoring non roll channels
+    return;
+  }
+
   if ((m.content == `wish character` || m.content == 'wish series') && m.reference){  
     const char = await m.channel.messages.fetch(m.reference.messageId);
 
