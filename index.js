@@ -25,6 +25,9 @@ async function Roll () {
       await utility.sleep(process.env.SLEEP_BETWEEN_ROLLS);
       message = await channel.send('$m');
       collected = await channel.awaitMessages({filter, max: 1, time: process.env.ROLL_TIMEOUT, errors:['time']});
+      if (collected.size <= 0){
+        console.log('No message recieved');
+      }
       const roll = collected.first();
       
       if (roll.content.includes(`**${client.user.username}**, the roulette is limited to`)){ //end rolling when reached the limit
