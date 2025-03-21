@@ -111,90 +111,103 @@ client.on('messageCreate', async (m) => {
   }  
 })
 
-//wishlist related
-client.on('messageCreate', async (m) => {
-  if (m.channel.id != channel.id){ //ignoring non roll channels
-    return;
-  }
-
-  if ((m.content == `wish character` || m.content == 'wish series') && m.reference){  
-    const char = await m.channel.messages.fetch(m.reference.messageId);
-
-    if (char.embeds.length <= 0){
-      m.reply('Not a valid character');
-      return;
-    } 
-    
-    const roll = char.embeds[0]; //retrieving character details from the embed
-
-    if(!roll.description.includes('Claim Rank')){
-      m.reply('Not a valid character');
-      return;
-    }
-
-    
-    const name = roll.author.name;
-    const series = roll.description.split('<:')[0].trim();
-
-
-    if (m.content == 'wish character'){
-      try{
-        await db('wishlist').insert({name: name, type: 'character'});
-        console.log(`Successfully inserted ${name} into wishlist`);
-        char_wishlist = await db('wishlist').select('name').where('type', 'character'); //updating the wishlist in memory
-      } catch (error){
-        console.log(`ERROR while inserting ${name} to wishlist\n`+error);
-      }
-      
-
-    } else if (m.content == 'wish series'){
-      try{
-        await db('wishlist').insert({name: series, type: 'series'});
-        console.log(`Successfully inserted ${series} into wishlist`);
-        series_wishlist = await db('wishlist').select('name').where('type', 'series'); //updating the wishlist in memory
-      } catch (error){
-        console.log(`ERROR while inserting ${series} to wishlist\n`+error);
-      }
-    }    
-  }
-})
-
 //bot commands
 client.on('messageCreate', async(m)=>{
-  if (m.content == 'enable rolling'){ //enable rolling
-    let obj = {ROLL:1}
-    if (await utility.change_setting(obj)){      
-      if (timer != null){
-        m.react('☑️');
-        return;
+  if (m.content.startsWith(`<@${client.user.id}>`)){
+
+    const command = m.content.slice(`<@${client.user.id}>`.length).trim().toLowerCase(); //extracting the command from the message
+
+    if (command == 'enable rolling'){ //enable rolling
+      let obj = {ROLL:1}
+      if (await utility.change_setting(obj)){      
+        if (timer != null){
+          m.react('☑️');
+          return;
+        } else {
+          Roll();
+          timer = setInterval(Roll, process.env.ROLL_TIMER);
+          m.react('✅');
+        }
       } else {
-        Roll();
-        timer = setInterval(Roll, process.env.ROLL_TIMER);
-        m.react('✅');
+        m.reply('Rolling could not be enabled');
       }
-    } else {
-      m.reply('Rolling could not be enabled');
-    }
-  } else if (m.content == 'disable rolling'){ //disable rolling
-    let obj = {ROLL:0}
-    if (await utility.change_setting(obj)){      
-      if (timer == null){
-        m.react('☑️');
-        return;
+    } else if (command == 'disable rolling'){ //disable rolling
+      let obj = {ROLL:0}
+      if (await utility.change_setting(obj)){      
+        if (timer == null){
+          m.react('☑️');
+          return;
+        } else {
+          try{
+            clearInterval(timer);
+            timer = null;
+            m.react('✅');
+            return;
+          } catch (error){
+            console.log('ERROR while clearing timer : ' + error);
+          }        
+        }
       } else {
+        m.reply('Rolling could not be disabled');
+      }
+    } else if ((command == `i want that character` || command == 'i want that series') && m.reference){  //wishing character/series
+      const char = await m.channel.messages.fetch(m.reference.messageId);
+  
+      if (char.embeds.length <= 0){
+        m.reply('Not a valid character');
+        return;
+      } 
+      
+      const roll = char.embeds[0]; //retrieving character details from the embed
+  
+      if(!roll.description.includes('Claim Rank')){
+        m.reply('Not a valid character');
+        return;
+      }
+  
+      
+      const name = roll.author.name;
+      const series = roll.description.split('<:')[0].trim();
+  
+  
+      if (command == 'i want that character'){
         try{
-          clearInterval(timer);
-          timer = null;
+          await db('wishlist').insert({name: name, type: 'character'});
+          console.log(`Successfully inserted ${name} into wishlist`);
+          char_wishlist = await db('wishlist').select('name').where('type', 'character'); //updating the wishlist in memory
           m.react('✅');
           return;
         } catch (error){
-          console.log('ERROR while clearing timer : ' + error);
-        }        
-      }
-    } else {
-      m.reply('Rolling could not be disabled');
+          console.log(`ERROR while inserting ${name} to wishlist\n`+error);
+          if (error.code == 'ER_DUP_ENTRY'){ //if the wish is already in database
+            m.react('☑️');
+            return;
+          }
+          m.react('❌');
+          return;
+        }
+        
+  
+      } else if (command == 'i want that series'){
+        try{
+          await db('wishlist').insert({name: series, type: 'series'});
+          console.log(`Successfully inserted ${series} into wishlist`);
+          series_wishlist = await db('wishlist').select('name').where('type', 'series'); //updating the wishlist in memory
+          m.react('✅');
+          return;
+        } catch (error){
+          console.log(`ERROR while inserting ${series} to wishlist\n`+error);
+          if (error.code == 'ER_DUP_ENTRY'){ //if the wish is already in database
+            m.react('☑️');
+            return;
+          }
+          m.react('❌');
+          return;
+        }
+      }    
     }
-  } 
+  }
+  
 
 })
 
