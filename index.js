@@ -19,16 +19,33 @@ async function Roll () {
   let message;  
   let roll_count = 0;
   let filter = m => m.author.username.includes('Mudae');
+  const collectorFilter = response => {
+    return response.some(re => re.author.username.includes('Mudae'));
+  };
   while(roll_count < 20){
     try{
       roll_count++;
       await utility.sleep(process.env.SLEEP_BETWEEN_ROLLS);
       message = await channel.send('$m');
-      collected = await channel.awaitMessages({filter, max: 1, time: process.env.ROLL_TIMEOUT, errors:['time']});
-      if (collected.size <= 0){
-        console.log('No message recieved');
-      }
-      const roll = collected.first();
+      // collected = await channel.awaitMessages({collectorFilter, max: 1, time: process.env.ROLL_TIMEOUT, errors: ['time']});
+
+
+      const collector = channel.createMessageCollector({ filter, max: 1, time: process.env.ROLL_TIMEOUT });
+
+      const collected = await new Promise((resolve, reject) => {
+        collector.on('collect', msg => {
+          resolve(msg);
+          collector.stop(); // Stop the collector once we have a message
+        });
+
+        collector.on('end', (collected, reason) => {
+          if (reason === 'time') reject(new Error('Timeout waiting for Mudae message'));
+        });
+      });
+
+
+      console.log('Collected : ' + collected);
+      const roll = collected;
       
       if (roll.content.includes(`**${client.user.username}**, the roulette is limited to`)){ //end rolling when reached the limit
         console.log('Rolling ended gracefully');
