@@ -33,14 +33,19 @@ async function Roll () {
       const collector = channel.createMessageCollector({ filter, max: 1, time: process.env.ROLL_TIMEOUT });
 
       const collected = await new Promise((resolve, reject) => {
-        collector.on('collect', msg => {
-          resolve(msg);
-          collector.stop(); // Stop the collector once we have a message
-        });
+        const listener = (msg) => {
+          if (filter(msg)) {
+            resolve(msg);
+            client.removeListener('messageCreate', listener); // Clean up listener
+          }
+        };
 
-        collector.on('end', (collected, reason) => {
-          if (reason === 'time') reject(new Error('Timeout waiting for Mudae message'));
-        });
+        client.on('messageCreate', listener);
+
+        setTimeout(() => {
+          client.removeListener('messageCreate', listener);
+          reject(new Error('Timeout waiting for Mudae message'));
+        }, process.env.ROLL_TIMEOUT);
       });
 
 
